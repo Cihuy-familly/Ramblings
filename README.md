@@ -1,4 +1,4 @@
-# Ramblings
+# Bramblings
 
 Multi-creator blog platform where creators share one domain — like a YouTube for blog posts.
 Write in markdown, publish with a click.
