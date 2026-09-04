@@ -70,9 +70,7 @@ services:
       - blog-network
 
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: ${BACKEND_IMAGE:-registry.cihuyproject.my.id/blog-backend:latest}
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-blog}:${DB_PASSWORD:-blogpassword}@postgres:5432/${POSTGRES_DB:-blog}?sslmode=disable
       REDIS_URL: redis://redis:6379/0
@@ -109,9 +107,7 @@ services:
       - blog-network
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+    image: ${FRONTEND_IMAGE:-registry.cihuyproject.my.id/blog-frontend:latest}
     ports:
       - "${FRONTEND_PORT:-80}:80"
     depends_on:
