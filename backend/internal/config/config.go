@@ -7,29 +7,41 @@ import (
 
 // Config holds all configuration for the application.
 type Config struct {
-	DatabaseURL    string
-	RedisURL       string
-	MinIOEndpoint  string
-	MinIOAccessKey string
-	MinIOSecretKey string
-	MinIOBucket    string
-	MinIOUseSSL    bool
-	JWTSecret      string
-	ServerPort     string
+	DatabaseURL       string
+	RedisURL          string
+	MinIOEndpoint     string
+	MinIOAccessKey    string
+	MinIOSecretKey    string
+	MinIOBucket       string
+	MinIOUseSSL       bool
+	JWTSecret         string
+	ServerPort        string
+	GoogleClientID     string
+	GoogleClientSecret string
+	GoogleCallbackURL  string
+	FrontendURL        string
+	MeiliURL          string
+	MeiliMasterKey    string
 }
 
 // Load reads configuration from environment variables with sensible defaults.
 func Load() *Config {
 	return &Config{
-		DatabaseURL:    getEnv("DATABASE_URL", "postgres://blog:blogpassword@localhost:5432/blog?sslmode=disable"),
-		RedisURL:       getEnv("REDIS_URL", "redis://localhost:6379/0"),
-		MinIOEndpoint:  getEnv("MINIO_ENDPOINT", "localhost:9000"),
-		MinIOAccessKey: getEnv("MINIO_ACCESS_KEY", "minioadmin"),
-		MinIOSecretKey: getEnv("MINIO_SECRET_KEY", "minioadmin"),
-		MinIOBucket:    getEnv("MINIO_BUCKET", "blog-images"),
-		MinIOUseSSL:    getEnvBool("MINIO_USE_SSL", false),
-		JWTSecret:      getEnv("JWT_SECRET", "dev-secret-change-in-production"),
-		ServerPort:     getEnv("SERVER_PORT", "8080"),
+		DatabaseURL:        getEnv("DATABASE_URL", "postgres://blog:blogpassword@localhost:5432/blog?sslmode=disable"),
+		RedisURL:           getEnv("REDIS_URL", "redis://localhost:6379/0"),
+		MinIOEndpoint:      getEnv("MINIO_ENDPOINT", "localhost:9000"),
+		MinIOAccessKey:     getEnv("MINIO_ACCESS_KEY", "minioadmin"),
+		MinIOSecretKey:     getEnv("MINIO_SECRET_KEY", "minioadmin"),
+		MinIOBucket:        getEnv("MINIO_BUCKET", "blog-images"),
+		MinIOUseSSL:        getEnvBool("MINIO_USE_SSL", false),
+		JWTSecret:          getEnv("JWT_SECRET", "dev-secret-change-in-production"),
+		ServerPort:         getEnv("SERVER_PORT", "8080"),
+		GoogleClientID:      getEnv("GOOGLE_CLIENT_ID", ""),
+		GoogleClientSecret:  getEnv("GOOGLE_CLIENT_SECRET", ""),
+		GoogleCallbackURL:   getEnv("GOOGLE_CALLBACK_URL", "http://localhost:8080/api/auth/google/callback"),
+		FrontendURL:         getEnv("FRONTEND_URL", "http://localhost"),
+		MeiliURL:            getEnv("MEILI_URL", "http://meilisearch:7700"),
+		MeiliMasterKey:      getEnv("MEILI_MASTER_KEY", "dev-meili-key"),
 	}
 }
 

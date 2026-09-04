@@ -32,10 +32,10 @@ export default function Landing() {
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 sm:py-32 lg:py-40">
           <div className="max-w-3xl">
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight mb-6">
-              The Blog
+              Brambler
             </h1>
             <p className="text-lg sm:text-xl text-gray-300 mb-8 leading-relaxed">
-              Stories, ideas, and expertise from our creators.
+              Rambling about anything and everything.
             </p>
             <Link
               to="/posts"

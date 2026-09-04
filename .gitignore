@@ -12,6 +12,7 @@ Thumbs.db
 
 # Docker
 docker-data/
+data/
 
 # Backend
 backend/server

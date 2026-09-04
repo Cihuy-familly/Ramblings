@@ -9,6 +9,7 @@ interface AuthContextType {
   isAuthenticated: boolean
   login: (email: string, password: string) => Promise<void>
   logout: () => void
+  setToken: (token: string) => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -50,6 +51,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setCreator(newCreator)
   }, [])
 
+  const handleSetToken = useCallback(async (newToken: string) => {
+    localStorage.setItem('token', newToken)
+    setToken(newToken)
+    try {
+      const { creator: me } = await apiGetMe()
+      setCreator(me)
+    } catch {
+      // Token invalid, clean up
+      localStorage.removeItem('token')
+      setToken(null)
+      setCreator(null)
+    }
+  }, [])
+
   const logout = useCallback(() => {
     localStorage.removeItem('token')
     setToken(null)
@@ -65,6 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated,
         login,
         logout,
+        setToken: handleSetToken,
       }}
     >
       {children}

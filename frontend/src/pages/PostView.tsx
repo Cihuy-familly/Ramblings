@@ -8,6 +8,7 @@ import type { Post } from '../types'
 
 export default function PostView() {
   const { slug } = useParams<{ slug: string }>()
+  const [avatarError, setAvatarError] = useState(false)
   const [post, setPost] = useState<Post | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -111,11 +112,15 @@ export default function PostView() {
           </div>
         )}
 
-        {/* Category badge */}
-        {post.category && (
-          <span className="inline-block px-3 py-1 text-sm font-medium text-brand-700 bg-brand-50 rounded-full mb-4">
-            {post.category.name}
-          </span>
+        {/* Category badges */}
+        {post.categories && post.categories.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-6">
+            {post.categories.map((cat) => (
+              <span key={cat.id} className="inline-block px-3 py-1 text-sm font-medium text-brand-700 bg-brand-50 rounded-full">
+                {cat.name}
+              </span>
+            ))}
+          </div>
         )}
 
         {/* Title */}
@@ -127,8 +132,13 @@ export default function PostView() {
         <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 mb-8 pb-8 border-b border-gray-200">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center overflow-hidden">
-              {post.creator.avatar_url ? (
-                <img src={post.creator.avatar_url} alt={post.creator.display_name} className="w-full h-full object-cover" />
+              {post.creator.avatar_url && !avatarError ? (
+                <img
+                  src={post.creator.avatar_url}
+                  alt={post.creator.display_name}
+                  className="w-full h-full object-cover"
+                  onError={() => setAvatarError(true)}
+                />
               ) : (
                 <User className="w-4 h-4 text-brand-600" />
               )}
@@ -138,6 +148,11 @@ export default function PostView() {
           <span className="flex items-center gap-1.5">
             <Calendar className="w-4 h-4" />
             {formattedDate}
+          {post.updated_at !== post.created_at && (
+            <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+              Edited
+            </span>
+          )}
           </span>
           <span className="flex items-center gap-1.5">
             <Clock className="w-4 h-4" />

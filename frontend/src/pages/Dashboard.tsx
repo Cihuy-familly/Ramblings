@@ -1,32 +1,39 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { Plus, Edit3, Trash2, Eye, EyeOff, AlertTriangle, Calendar, FileText } from 'lucide-react'
-import { getMyPosts, deletePost } from '../api/client'
+import { getMyPosts, deletePost, getStudioStats } from '../api/client'
+import type { StudioStats } from '../api/client'
 import type { Post } from '../types'
 
 export default function Dashboard() {
-  const navigate = useNavigate()
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [stats, setStats] = useState<StudioStats | null>(null)
+  const [statsLoading, setStatsLoading] = useState(true)
 
-  async function fetchPosts() {
+  async function fetchData() {
     setLoading(true)
     setError(null)
     try {
-      const { posts: data } = await getMyPosts()
-      setPosts(data)
+      const [postsData, statsData] = await Promise.all([
+        getMyPosts(),
+        getStudioStats(),
+      ])
+      setPosts(postsData.posts)
+      setStats(statsData)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load posts')
+      setError(err instanceof Error ? err.message : 'Failed to load data')
     } finally {
       setLoading(false)
+      setStatsLoading(false)
     }
   }
 
   useEffect(() => {
-    fetchPosts()
+    fetchData()
   }, [])
 
   async function handleDelete(id: string) {
@@ -68,6 +75,40 @@ export default function Dashboard() {
           </Link>
         </div>
 
+        {/* Stats cards */}
+        {stats && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <p className="text-2xl font-bold text-gray-900">{stats.stats.total_posts}</p>
+              <p className="text-sm text-gray-500 mt-1">Total Posts</p>
+            </div>
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <p className="text-2xl font-bold text-gray-900">{stats.stats.follower_count}</p>
+              <p className="text-sm text-gray-500 mt-1">Followers</p>
+            </div>
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <p className="text-2xl font-bold text-gray-900">{stats.stats.published_posts}</p>
+              <p className="text-sm text-gray-500 mt-1">Published</p>
+            </div>
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <p className="text-2xl font-bold text-gray-900">{stats.stats.draft_posts}</p>
+              <p className="text-sm text-gray-500 mt-1">Drafts</p>
+            </div>
+          </div>
+        )}
+
+        {/* Stats loading skeleton */}
+        {statsLoading && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="bg-white rounded-xl border border-gray-200 p-4">
+                <div className="h-8 w-16 bg-gray-100 rounded animate-pulse mb-2" />
+                <div className="h-4 w-20 bg-gray-100 rounded animate-pulse" />
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Error message */}
         {error && (
           <div className="flex items-start gap-3 p-4 mb-6 bg-red-50 border border-red-200 rounded-lg">
@@ -90,11 +131,11 @@ export default function Dashboard() {
             {[...Array(5)].map((_, i) => (
               <div key={i} className="bg-white rounded-xl border border-gray-200 p-6">
                 <div className="space-y-3">
-                  <div className="h-5 skeleton rounded w-3/4"></div>
-                  <div className="h-4 skeleton rounded w-1/2"></div>
+                  <div className="h-5 bg-gray-100 rounded w-3/4 animate-pulse" />
+                  <div className="h-4 bg-gray-100 rounded w-1/2 animate-pulse" />
                   <div className="flex gap-4">
-                    <div className="h-4 w-16 skeleton rounded-full"></div>
-                    <div className="h-4 w-24 skeleton rounded"></div>
+                    <div className="h-4 w-16 bg-gray-100 rounded-full animate-pulse" />
+                    <div className="h-4 w-24 bg-gray-100 rounded animate-pulse" />
                   </div>
                 </div>
               </div>
@@ -168,7 +209,9 @@ export default function Dashboard() {
                 {/* Category */}
                 <div className="sm:col-span-2 mb-1 sm:mb-0">
                   <span className="text-sm text-gray-600">
-                    {post.category?.name || <span className="text-gray-400 italic">None</span>}
+                    {post.categories && post.categories.length > 0
+                      ? post.categories.map(c => c.name).join(', ')
+                      : <span className="text-gray-400 italic">None</span>}
                   </span>
                 </div>
 
@@ -182,17 +225,17 @@ export default function Dashboard() {
 
                 {/* Actions */}
                 <div className="sm:col-span-1 flex items-center gap-2 sm:justify-end">
-                  <button
-                    onClick={() => navigate(`/dashboard/edit/${post.id}`)}
-                    className="p-2 text-gray-500 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
-                    aria-label="Edit post"
+                  <Link
+                    to={`/dashboard/edit/${post.id}`}
+                    className="p-2 text-gray-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
+                    title="Edit post"
                   >
                     <Edit3 className="w-4 h-4" />
-                  </button>
+                  </Link>
                   <button
                     onClick={() => setDeleteConfirm(post.id)}
-                    className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                    aria-label="Delete post"
+                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    title="Delete post"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -232,7 +275,7 @@ export default function Dashboard() {
                 >
                   {deleting ? (
                     <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
                       Deleting...
                     </>
                   ) : (

@@ -38,11 +38,15 @@ export default function PostCard({ post }: PostCardProps) {
 
       {/* Content */}
       <div className="p-5">
-        {/* Category badge */}
-        {post.category && (
-          <span className="inline-block px-2.5 py-1 text-xs font-medium text-brand-700 bg-brand-50 rounded-full mb-3">
-            {post.category.name}
-          </span>
+        {/* Category badges */}
+        {post.categories && post.categories.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {post.categories.map((cat) => (
+              <span key={cat.id} className="inline-block px-2.5 py-1 text-xs font-medium text-brand-700 bg-brand-50 rounded-full">
+                {cat.name}
+              </span>
+            ))}
+          </div>
         )}
 
         {/* Title */}
