@@ -14,7 +14,7 @@ export default function EditPost() {
   const [slug, setSlug] = useState('')
   const [excerpt, setExcerpt] = useState('')
   const [content, setContent] = useState('')
-  const [categoryId, setCategoryId] = useState<number | null>(null)
+  const [categoryIds, setCategoryIds] = useState<number[]>([])
   const [thumbnailUrl, setThumbnailUrl] = useState('')
   const [published, setPublished] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
@@ -48,7 +48,7 @@ export default function EditPost() {
         setSlug(found.slug)
         setExcerpt(found.excerpt)
         setContent(found.content)
-        setCategoryId(found.category?.id ?? null)
+        setCategoryIds(found.categories?.map(c => c.id) ?? [])
         setThumbnailUrl(found.thumbnail_url)
         setPublished(found.published)
       } catch (err) {
@@ -136,7 +136,7 @@ export default function EditPost() {
         title: title.trim(),
         content,
         excerpt: excerpt.trim(),
-        category_id: categoryId,
+        category_ids: categoryIds,
         thumbnail_url: thumbnailUrl,
         published,
       })
@@ -250,22 +250,33 @@ export default function EditPost() {
           {/* Category + Published */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1.5">
-                Category
-              </label>
-              <select
-                id="category"
-                value={categoryId ?? ''}
-                onChange={(e) => setCategoryId(e.target.value ? Number(e.target.value) : null)}
-                className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-colors bg-white"
-              >
-                <option value="">No category</option>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Categories</label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {categories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
+                  <label
+                    key={cat.id}
+                    className={`flex items-center gap-2 px-3 py-2 text-sm border rounded-lg cursor-pointer transition-colors ${
+                      categoryIds.includes(cat.id)
+                        ? 'bg-brand-50 border-brand-300 text-brand-700'
+                        : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={categoryIds.includes(cat.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setCategoryIds([...categoryIds, cat.id])
+                        } else {
+                          setCategoryIds(categoryIds.filter((id) => id !== cat.id))
+                        }
+                      }}
+                      className="sr-only"
+                    />
                     {cat.name}
-                  </option>
+                  </label>
                 ))}
-              </select>
+              </div>
             </div>
 
             <div>

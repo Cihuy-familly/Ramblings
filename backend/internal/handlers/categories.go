@@ -48,7 +48,8 @@ func (h *CategoryHandler) ListCategories(c *gin.Context) {
 	var results []CategoryWithCount
 	if err := h.db.Model(&models.Category{}).
 		Select("categories.id, categories.name, categories.slug, COUNT(posts.id) AS post_count").
-		Joins("LEFT JOIN posts ON posts.category_id = categories.id AND posts.published = ?", true).
+		Joins("LEFT JOIN post_categories ON post_categories.category_id = categories.id").
+		Joins("LEFT JOIN posts ON posts.id = post_categories.post_id AND posts.published = ?", true).
 		Group("categories.id, categories.name, categories.slug").
 		Order("categories.name ASC").
 		Scan(&results).Error; err != nil {

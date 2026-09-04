@@ -103,3 +103,112 @@ export async function uploadImage(file: File): Promise<string> {
   const data = await handleResponse<UploadResponse>(res)
   return data.url
 }
+// --- Channel & Studio API ---
+
+export interface ChannelResponse {
+  channel: {
+    id: string
+    slug: string
+    display_name: string
+    avatar_url: string
+    bio: string
+    follower_count: number
+    posts: Array<{
+      id: string
+      title: string
+      slug: string
+      excerpt: string
+      thumbnail_url: string
+      created_at: string
+    }>
+    created_at: string
+  }
+}
+
+export interface FollowResponse {
+  message: string
+  follower_count: number
+}
+
+export interface IsFollowingResponse {
+  is_following: boolean
+  follower_count: number
+}
+
+export interface StudioStats {
+  stats: {
+    total_posts: number
+    published_posts: number
+    draft_posts: number
+    follower_count: number
+    following_count: number
+  }
+  recent_posts: Array<{
+    id: string
+    title: string
+    slug: string
+    published: boolean
+    created_at: string
+    updated_at: string
+  }>
+}
+
+export async function getChannel(slug: string): Promise<ChannelResponse> {
+  const res = await fetch(`${BASE_URL}/channels/${slug}`)
+  return handleResponse<ChannelResponse>(res)
+}
+
+export async function followChannel(slug: string): Promise<FollowResponse> {
+  const res = await fetchWithAuth(`${BASE_URL}/channels/${slug}/follow`, { method: 'POST' })
+  return handleResponse<FollowResponse>(res)
+}
+
+export async function unfollowChannel(slug: string): Promise<FollowResponse> {
+  const res = await fetchWithAuth(`${BASE_URL}/channels/${slug}/follow`, { method: 'DELETE' })
+  return handleResponse<FollowResponse>(res)
+}
+
+export async function isFollowingChannel(slug: string): Promise<IsFollowingResponse> {
+  const res = await fetchWithAuth(`${BASE_URL}/channels/${slug}/is-following`)
+  return handleResponse<IsFollowingResponse>(res)
+}
+
+export async function getStudioStats(): Promise<StudioStats> {
+  const res = await fetchWithAuth(`${BASE_URL}/creator/stats`)
+  return handleResponse<StudioStats>(res)
+}
+
+// --- Search API ---
+
+export interface SearchResult {
+  id: string
+  title: string
+  slug: string
+  excerpt: string
+  thumbnail_url: string
+  creator_id: string
+  creator_name: string
+  category_name: string
+  created_at: number
+}
+
+export interface SearchCreatorResult {
+  id: string
+  display_name: string
+  slug: string
+  avatar_url: string
+  bio: string
+}
+
+export interface SearchResponse {
+  posts: SearchResult[]
+  creators: SearchCreatorResult[]
+  total: number
+  page: number
+}
+
+export async function search(q: string, page = 1, limit = 12): Promise<SearchResponse> {
+  const params = new URLSearchParams({ q, page: String(page), limit: String(limit) })
+  const res = await fetch(`${BASE_URL}/search?${params}`)
+  return handleResponse<SearchResponse>(res)
+}

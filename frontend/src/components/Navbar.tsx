@@ -1,12 +1,22 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Menu, X, PenSquare } from 'lucide-react'
+import { Menu, X, PenSquare, Search } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
 export default function Navbar() {
   const { isAuthenticated, creator, logout } = useAuth()
   const navigate = useNavigate()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+
+  function handleSearch(e: React.FormEvent) {
+    e.preventDefault()
+    if (searchQuery.trim()) {
+      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`)
+      setSearchQuery('')
+      setMobileMenuOpen(false)
+    }
+  }
 
   function handleLogout() {
     logout()
@@ -20,8 +30,22 @@ export default function Navbar() {
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 text-xl font-bold text-gray-900 hover:text-brand-600 transition-colors">
             <PenSquare className="w-6 h-6 text-brand-600" />
-            <span>The Blog</span>
+            <span>Brambler</span>
           </Link>
+
+          {/* Search bar (desktop) */}
+          <form onSubmit={handleSearch} className="hidden md:flex items-center flex-1 max-w-md mx-4">
+            <div className="relative w-full">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search posts..."
+                className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-gray-50 hover:bg-white transition-colors"
+              />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            </div>
+          </form>
 
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center gap-6">
@@ -45,6 +69,12 @@ export default function Navbar() {
                   className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
                 >
                   Dashboard
+                </Link>
+                <Link
+                  to={`/@${creator.slug}`}
+                  className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+                >
+                  Channel
                 </Link>
                 <span className="text-sm text-gray-400">|</span>
                 <span className="text-sm text-gray-700 font-medium">{creator.display_name}</span>
@@ -80,6 +110,18 @@ export default function Navbar() {
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-gray-200 bg-white">
           <div className="px-4 py-4 space-y-3">
+            {/* Mobile search */}
+            <form onSubmit={handleSearch} className="relative">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search posts..."
+                className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-gray-50"
+              />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            </form>
+
             <Link
               to="/"
               onClick={() => setMobileMenuOpen(false)}
@@ -103,6 +145,13 @@ export default function Navbar() {
                   className="block text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
                 >
                   Dashboard
+                </Link>
+                <Link
+                  to={`/@${creator.slug}`}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+                >
+                  My Channel
                 </Link>
                 <div className="pt-3 border-t border-gray-100">
                   <span className="text-sm text-gray-500">Logged in as </span>

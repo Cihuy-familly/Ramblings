@@ -3,6 +3,7 @@ export interface Creator {
   email: string
   display_name: string
   avatar_url: string
+  slug: string
   bio?: string
 }
 
@@ -21,7 +22,7 @@ export interface Post {
   excerpt: string
   thumbnail_url: string
   published: boolean
-  category: Category | null
+  categories: Category[]
   creator: Creator
   created_at: string
   updated_at: string
@@ -47,7 +48,7 @@ export interface PostFormData {
   title: string
   content: string
   excerpt: string
-  category_id: number | null
+  category_ids: number[]
   thumbnail_url: string
   published: boolean
 }

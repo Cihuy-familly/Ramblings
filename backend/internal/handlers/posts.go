@@ -18,17 +18,19 @@ import (
 	"gorm.io/gorm"
 
 	"blog-platform-backend/internal/models"
+	"blog-platform-backend/internal/search"
 )
 
 // PostHandler handles blog post endpoints.
 type PostHandler struct {
-	db    *gorm.DB
-	redis *redis.Client
+	db        *gorm.DB
+	redis     *redis.Client
+	searchSvc *search.Service
 }
 
 // NewPostHandler creates a new PostHandler.
-func NewPostHandler(db *gorm.DB, rdb *redis.Client) *PostHandler {
-	return &PostHandler{db: db, redis: rdb}
+func NewPostHandler(db *gorm.DB, rdb *redis.Client, svc *search.Service) *PostHandler {
+	return &PostHandler{db: db, redis: rdb, searchSvc: svc}
 }
 
 // --- Response types ---
@@ -49,9 +51,11 @@ type postListItem struct {
 	ID           string         `json:"id"`
 	Title        string         `json:"title"`
 	Slug         string         `json:"slug"`
+	Content      string         `json:"content"`
 	Excerpt      string         `json:"excerpt"`
 	ThumbnailURL string         `json:"thumbnail_url"`
-	Category     *categoryBrief `json:"category"`
+	Published    bool           `json:"published"`
+	Categories   []categoryBrief `json:"categories"`
 	Creator      creatorBrief   `json:"creator"`
 	CreatedAt    time.Time      `json:"created_at"`
 	UpdatedAt    time.Time      `json:"updated_at"`
@@ -65,7 +69,7 @@ type postDetail struct {
 	Excerpt      string         `json:"excerpt"`
 	ThumbnailURL string         `json:"thumbnail_url"`
 	Published    bool           `json:"published"`
-	Category     *categoryBrief `json:"category"`
+	Categories   []categoryBrief `json:"categories"`
 	Creator      creatorBrief   `json:"creator"`
 	CreatedAt    time.Time      `json:"created_at"`
 	UpdatedAt    time.Time      `json:"updated_at"`
@@ -77,7 +81,7 @@ type createPostRequest struct {
 	Title        string `json:"title" binding:"required"`
 	Content      string `json:"content" binding:"required"`
 	Excerpt      string `json:"excerpt"`
-	CategoryID   *int   `json:"category_id"`
+	CategoryIDs  []int  `json:"category_ids"`
 	ThumbnailURL string `json:"thumbnail_url"`
 	Published    bool   `json:"published"`
 }
@@ -86,7 +90,7 @@ type updatePostRequest struct {
 	Title        string `json:"title" binding:"required"`
 	Content      string `json:"content" binding:"required"`
 	Excerpt      string `json:"excerpt"`
-	CategoryID   *int   `json:"category_id"`
+	CategoryIDs  []int  `json:"category_ids"`
 	ThumbnailURL string `json:"thumbnail_url"`
 	Published    bool   `json:"published"`
 }
@@ -120,8 +124,10 @@ func (h *PostHandler) ListPosts(c *gin.Context) {
 	// Build query
 	query := h.db.Where("published = ?", true)
 	if categorySlug != "" {
-		query = query.Joins("JOIN categories ON categories.id = posts.category_id").
-			Where("categories.slug = ?", categorySlug)
+		query = query.Joins("JOIN post_categories ON post_categories.post_id = posts.id").
+			Joins("JOIN categories ON categories.id = post_categories.category_id").
+			Where("categories.slug = ?", categorySlug).
+			Distinct()
 	}
 
 	// Count total
@@ -140,7 +146,7 @@ func (h *PostHandler) ListPosts(c *gin.Context) {
 	var posts []models.Post
 	if err := query.
 		Preload("Creator").
-		Preload("Category").
+		Preload("Categories").
 		Order("created_at DESC").
 		Offset(offset).
 		Limit(limit).
@@ -156,10 +162,10 @@ func (h *PostHandler) ListPosts(c *gin.Context) {
 	}
 
 	response := gin.H{
-		"posts":       items,
-		"total":       total,
-		"page":        page,
-		"totalPages":  totalPages,
+		"posts":      items,
+		"total":      total,
+		"page":       page,
+		"totalPages": totalPages,
 	}
 
 	// Cache for 2 minutes
@@ -179,7 +185,7 @@ func (h *PostHandler) GetPost(c *gin.Context) {
 	if err := h.db.
 		Where("slug = ? AND published = ?", slug, true).
 		Preload("Creator").
-		Preload("Category").
+		Preload("Categories").
 		First(&post).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "post not found"})
 		return
@@ -198,7 +204,7 @@ func (h *PostHandler) CreatorListPosts(c *gin.Context) {
 	if err := h.db.
 		Where("creator_id = ?", creatorID).
 		Preload("Creator").
-		Preload("Category").
+		Preload("Categories").
 		Order("created_at DESC").
 		Find(&posts).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch posts"})
@@ -223,17 +229,29 @@ func (h *PostHandler) CreatorCreatePost(c *gin.Context) {
 		return
 	}
 
+	// Minimum content length (200 chars) to prevent one-liners
+	if len(strings.TrimSpace(req.Content)) < 200 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "content must be at least 200 characters"})
+		return
+	}
+
 	slug := h.generateUniqueSlug(req.Title)
+
+	// Look up categories
+	var cats []models.Category
+	if len(req.CategoryIDs) > 0 {
+		h.db.Where("id IN ?", req.CategoryIDs).Find(&cats)
+	}
 
 	post := models.Post{
 		CreatorID:    creatorID,
-		CategoryID:   req.CategoryID,
 		Title:        req.Title,
 		Slug:         slug,
 		Content:      req.Content,
 		Excerpt:      req.Excerpt,
 		ThumbnailURL: req.ThumbnailURL,
 		Published:    req.Published,
+		Categories:   cats,
 	}
 
 	if err := h.db.Create(&post).Error; err != nil {
@@ -242,7 +260,10 @@ func (h *PostHandler) CreatorCreatePost(c *gin.Context) {
 	}
 
 	// Reload with relationships
-	h.db.Preload("Creator").Preload("Category").First(&post, "id = ?", post.ID)
+	h.db.Preload("Creator").Preload("Categories").First(&post, "id = ?", post.ID)
+
+	// Index in Meilisearch
+	go h.indexPost(post)
 
 	// Invalidate caches
 	h.invalidatePostCaches(ctxForCache())
@@ -272,6 +293,12 @@ func (h *PostHandler) CreatorUpdatePost(c *gin.Context) {
 		return
 	}
 
+		// Minimum content length check
+		if len(strings.TrimSpace(req.Content)) < 200 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "content must be at least 200 characters"})
+			return
+		}
+
 	// Regenerate slug only if title changed
 	newSlug := post.Slug
 	if req.Title != post.Title {
@@ -283,7 +310,6 @@ func (h *PostHandler) CreatorUpdatePost(c *gin.Context) {
 		"slug":          newSlug,
 		"content":       req.Content,
 		"excerpt":       req.Excerpt,
-		"category_id":   req.CategoryID,
 		"thumbnail_url": req.ThumbnailURL,
 		"published":     req.Published,
 	}
@@ -293,8 +319,18 @@ func (h *PostHandler) CreatorUpdatePost(c *gin.Context) {
 		return
 	}
 
+	// Replace categories via association
+	var cats []models.Category
+	if len(req.CategoryIDs) > 0 {
+		h.db.Where("id IN ?", req.CategoryIDs).Find(&cats)
+	}
+	h.db.Model(&post).Association("Categories").Replace(cats)
+
 	// Reload with relationships
-	h.db.Preload("Creator").Preload("Category").First(&post, "id = ?", post.ID)
+	h.db.Preload("Creator").Preload("Categories").First(&post, "id = ?", post.ID)
+
+	// Index in Meilisearch
+	go h.indexPost(post)
 
 	// Invalidate caches
 	h.invalidatePostCaches(ctxForCache())
@@ -323,6 +359,9 @@ func (h *PostHandler) CreatorDeletePost(c *gin.Context) {
 		return
 	}
 
+	// Remove from Meilisearch
+	go h.searchSvc.RemovePost(post.ID)
+
 	// Invalidate caches
 	h.invalidatePostCaches(ctxForCache())
 
@@ -331,13 +370,32 @@ func (h *PostHandler) CreatorDeletePost(c *gin.Context) {
 
 // --- Helpers ---
 
+// indexPost indexes a post in Meilisearch, loading creator and category names.
+func (h *PostHandler) indexPost(post models.Post) {
+	// Load relationships if not already loaded
+	if post.Creator.ID == "" {
+		h.db.Preload("Creator").Preload("Categories").First(&post, "id = ?", post.ID)
+	}
+	creatorName := ""
+	if post.Creator.DisplayName != "" {
+		creatorName = post.Creator.DisplayName
+	}
+	categoryNames := []string{}
+	for _, cat := range post.Categories {
+		categoryNames = append(categoryNames, cat.Name)
+	}
+	h.searchSvc.IndexPost(post, creatorName, categoryNames)
+}
+
 func postToListItem(p models.Post) postListItem {
 	item := postListItem{
 		ID:           p.ID,
 		Title:        p.Title,
 		Slug:         p.Slug,
+		Content:      p.Content,
 		Excerpt:      p.Excerpt,
 		ThumbnailURL: p.ThumbnailURL,
+		Published:    p.Published,
 		Creator: creatorBrief{
 			ID:          p.Creator.ID,
 			DisplayName: p.Creator.DisplayName,
@@ -346,12 +404,12 @@ func postToListItem(p models.Post) postListItem {
 		CreatedAt: p.CreatedAt,
 		UpdatedAt: p.UpdatedAt,
 	}
-	if p.Category != nil {
-		item.Category = &categoryBrief{
-			ID:   p.Category.ID,
-			Name: p.Category.Name,
-			Slug: p.Category.Slug,
-		}
+	for _, cat := range p.Categories {
+		item.Categories = append(item.Categories, categoryBrief{
+			ID:   cat.ID,
+			Name: cat.Name,
+			Slug: cat.Slug,
+		})
 	}
 	return item
 }
@@ -373,12 +431,12 @@ func postToDetail(p models.Post) postDetail {
 		CreatedAt: p.CreatedAt,
 		UpdatedAt: p.UpdatedAt,
 	}
-	if p.Category != nil {
-		d.Category = &categoryBrief{
-			ID:   p.Category.ID,
-			Name: p.Category.Name,
-			Slug: p.Category.Slug,
-		}
+	for _, cat := range p.Categories {
+		d.Categories = append(d.Categories, categoryBrief{
+			ID:   cat.ID,
+			Name: cat.Name,
+			Slug: cat.Slug,
+		})
 	}
 	return d
 }

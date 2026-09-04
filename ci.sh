@@ -49,9 +49,9 @@ test_all() {
   (cd "$BACKEND_DIR" && go vet ./...) || fail "go vet failed"
   ok "go vet passed"
 
-  info "Backend: running go build..."
-  (cd "$BACKEND_DIR" && go build ./...) || fail "go build failed"
-  ok "go build passed"
+  info "Backend: running go test..."
+  (cd "$BACKEND_DIR" && go test ./... -v) || fail "go test failed"
+  ok "go test passed"
 
   # --- Frontend ---
   if [ -d "$FRONTEND_DIR/node_modules" ]; then
@@ -61,6 +61,10 @@ test_all() {
     (cd "$FRONTEND_DIR" && npm ci) || fail "npm ci failed"
   fi
   ok "frontend dependencies installed"
+
+  info "Frontend: running tests..."
+  (cd "$FRONTEND_DIR" && npm run test) || fail "frontend tests failed"
+  ok "frontend tests passed"
 
   info "Frontend: building..."
   (cd "$FRONTEND_DIR" && npm run build) || fail "frontend build failed"
