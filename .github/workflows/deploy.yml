@@ -10,35 +10,31 @@ jobs:
     name: Build & push Docker images
     if: |
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && contains(github.event.head_commit.message, '(build)'))
+      (github.event_name == 'push' &&
+      contains(github.event.head_commit.message,
+      '(build)'))
     runs-on: [self-hosted, cihuy-service]
-
+    
     steps:
-      # START NOTIFICATION
-      - name: Notify Start
+      # 1. NOTIFY: Workflow Triggered
+      - name: Notify Workflow Started
         if: always()
-        uses: Ilshidur/action-discord@master
-        env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-        with:
-          args: '🚀 **Deploy Workflow Started** for commit `${{ github.sha }}`'
-      
+        run: |
+          curl -H "Content-Type: application/json" \
+            -d '{"content": "🚀 **Deploy Workflow Started** for commit `${{ github.sha }}` in `${{ github.repository }}`"}' \
+            ${{ secrets.DISCORD_WEBHOOK }}
+
       - name: Checkout code
         uses: actions/checkout@v4
-
-      # RUNNER PICKED UP NOTIFICATION
+       # 2. NOTIFY: Runner Picked Up
       - name: Notify Runner Active
-        uses: Ilshidur/action-discord@master
-        env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-        with:
-          args: ' Runner picked up the job! Building images...' 
-      
-      # Setting up the buildx 
+        run: |
+          curl -H "Content-Type: application/json" \
+            -d '{"content": "🏃 **Runner picked up the job! ** Building and pushing Docker images..."}' \
+            ${{ secrets.DISCORD_WEBHOOK }}
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
-      # Running the CI 
       - name: Run CI script
         run: ./ci.sh docker-build-push
         env:
@@ -46,22 +42,24 @@ jobs:
           REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
           REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
 
-      # SUCCESS NOTIFICATION (Only runs if build succeeds)
+       # 3. NOTIFY: Success (with Image Details)
       - name: Notify Success
         if: success()
-        uses: Ilshidur/action-discord@master
-        env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-          IMAGE_TAG: ${{ github.sha }}
-          REGISTRY: ${{ secrets.REGISTRY_URL }}
-        with:
-          args: '✅ **Build Success!**\nRepo: `${{ github.repository }}`\nImages:\n- `${{ env.REGISTRY }}/blog-backend: ${{ env.IMAGE_TAG }}`\n- `${{ env.REGISTRY }}/ blog-frontend:${{ env.IMAGE_TAG }}`'    
+        run: |
+          curl -H "Content-Type: application/json" \
+            -d '{"content": "✅ **Build & Push Success!
+            **\nRepo: `${{ github.repository }}`\nImages:
+            \n- `${{ secrets.REGISTRY_URL }}/blog-backend:
+            ${{ github.sha }}`\n-
+            `${{ secrets.REGISTRY_URL }}/blog-frontend:
+            ${{ github.sha }}`"}' \
+            ${{ secrets.DISCORD_WEBHOOK }}
 
-      # FAILURE NOTIFICATION (Only runs if build fails)
+      # 4. NOTIFY: Failure
       - name: Notify Failure
         if: failure()
-        uses: Ilshidur/action-discord@master
-        env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-        with:
-          args: ' **Build Failed!** Check the logs for details.'
+        run: |
+          curl -H "Content-Type: application/json" \
+            -d '{"content": "❌ **Build & Push Failed!**
+            Check the workflow logs for details."}' \
+            ${{ secrets.DISCORD_WEBHOOK }}
