@@ -46,14 +46,7 @@ jobs:
       - name: Notify Success
         if: success()
         run: |
-          curl -H "Content-Type: application/json" \
-            -d '{"content": "✅ **Build & Push Success!
-            **\nRepo: `${{ github.repository }}`\nImages:
-            \n- `${{ secrets.REGISTRY_URL }}/blog-backend:
-            ${{ github.sha }}`\n-
-            `${{ secrets.REGISTRY_URL }}/blog-frontend:
-            ${{ github.sha }}`"}' \
-            ${{ secrets.DISCORD_WEBHOOK }}
+          curl -H "Content-Type: application/json" -d '{"content": "✅ **Build & Push Success!** Repo: `${{ github.repository }}` Images: `${{ secrets.REGISTRY_URL }}/blog-backend:${{ github.sha }}` `${{ secrets.REGISTRY_URL }}/blog-frontend:${{ github.sha }}`"}' ${{ secrets.DISCORD_WEBHOOK }}
 
       # 4. NOTIFY: Failure
       - name: Notify Failure
