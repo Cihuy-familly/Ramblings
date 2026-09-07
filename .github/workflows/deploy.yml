@@ -14,15 +14,54 @@ jobs:
     runs-on: [self-hosted, cihuy-service]
 
     steps:
+      # START NOTIFICATION
+      - name: Notify Start
+        if: always()
+        uses: Ilshidur/action-discord@master
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        with:
+          args: '🚀 **Deploy Workflow Started** for commit `${{ github.sha }}`'
+      
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # RUNNER PICKED UP NOTIFICATION
+      - name: Notify Runner Active
+        uses: Ilshidur/action-discord@master
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        with:
+          args: ' Runner picked up the job! Building images...' 
+      
+      # Setting up the buildx 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # Running the CI 
       - name: Run CI script
         run: ./ci.sh docker-build-push
         env:
           REGISTRY_URL: ${{ secrets.REGISTRY_URL }}
           REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
           REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+
+      # SUCCESS NOTIFICATION (Only runs if build succeeds)
+      - name: Notify Success
+        if: success()
+        uses: Ilshidur/action-discord@master
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          IMAGE_TAG: ${{ github.sha }}
+          REGISTRY: ${{ secrets.REGISTRY_URL }}
+        with:
+          args: '✅ **Build Success!**\nRepo: `${{ github.repository }}`\nImages:\n- `${{ env.REGISTRY }}/blog-backend: ${{ env.IMAGE_TAG }}`\n- `${{ env.REGISTRY }}/ blog-frontend:${{ env.IMAGE_TAG }}`'    
+
+      # FAILURE NOTIFICATION (Only runs if build fails)
+      - name: Notify Failure
+        if: failure()
+        uses: Ilshidur/action-discord@master
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        with:
+          args: ' **Build Failed!** Check the logs for details.'
